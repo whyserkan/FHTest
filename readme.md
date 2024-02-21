@@ -9,7 +9,7 @@ To start the application you can run.
 
 Notes:
 
-I couldn't find any reason to use Streams but, I have long years of experience with java 8.
-This was just  basic demonstration for a simple web application
-More tests can be added, for example expiring token, mocking the report apis
-I mostly get error from the sandbox endpoint so, I didn't rely on the data from services so probably Data objects are not correct. 
+* I couldn't find any reason to use Streams but, I have long years of experience with java 8.
+* This was just  basic demonstration for a simple web application
+* More tests can be added, for example expiring token, mocking the report apis
+* I mostly get error from the sandbox endpoint so, I didn't rely on the data from services so probably Data objects are not correct.
