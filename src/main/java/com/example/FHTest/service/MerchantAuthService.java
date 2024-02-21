@@ -1,8 +1,10 @@
 package com.example.FHTest.service;
 
+import jakarta.security.auth.message.AuthException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -13,37 +15,35 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
+import static java.time.LocalDateTime.now;
+
+@Slf4j
 @Service
 public class MerchantAuthService {
-
     private final WebClient.Builder webClientBuilder;
-
-    @Value("${reporting.token.expire.in.minutes}")
-    private int tokenExpireInMinutes;
-
-    @Value("${reporting.login.path}")
-    private String loginPath;
-
+    private final int tokenExpireInMinutes;
+    private final String loginPath;
     private LocalDateTime tokenFetched;
-
-    @Value("${reporting.api.login.password}")
-    private String password;
-
-    @Value("${reporting.api.login.email}")
-    private String email;
-
+    private final String password;
+    private final String email;
     private AuthUser AUTH_USER;
-
     private String token;
 
     @Autowired
-    public MerchantAuthService(WebClient.Builder webClientBuilder) {
+    public MerchantAuthService(WebClient.Builder webClientBuilder,
+                               @Value("${reporting.login.path}") String loginPath,
+                               @Value("${reporting.token.expire.in.minutes}") int tokenExpireInMinutes,
+                               @Value("${reporting.api.login.email}") String email,
+                               @Value("${reporting.api.login.password}") String password) {
         this.webClientBuilder = webClientBuilder;
-
+        this.loginPath = loginPath;
+        this.tokenExpireInMinutes = tokenExpireInMinutes;
+        this.email = email;
+        this.password = password;
     }
 
-    public String getToken() {
-        if (token==null || tokenFetched==null || LocalDateTime.now().minusMinutes(tokenExpireInMinutes).isAfter(tokenFetched)) {
+    public String getToken() throws AuthException {
+        if (token==null || tokenFetched==null || now().minusMinutes(tokenExpireInMinutes).isAfter(tokenFetched)) {
             fetchToken();
         }
         return token;
@@ -56,21 +56,28 @@ public class MerchantAuthService {
         return AUTH_USER;
     }
 
-    private void fetchToken() {
-        Mono<TokenFromAuthService> tokenFromAuthServiceMono = webClientBuilder.build()
+    private void fetchToken() throws AuthException {
+        TokenFromAuthService tokenFromAuthService =
+                webClientBuilder.build()
                 .post()
                 .uri(loginPath)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .body(Mono.just(getAuthUser()), AuthUser.class)
                 .retrieve()
-                .bodyToMono(TokenFromAuthService.class);
+                .bodyToMono(TokenFromAuthService.class)
+                        .doOnError(this::logTokenError)
+                        .block();
 
-        tokenFromAuthServiceMono.doOnError(throwable -> throwable.printStackTrace());
+        setTokenValue(tokenFromAuthService);
+    }
 
-        TokenFromAuthService tokenFromAuthService = tokenFromAuthServiceMono.block();
+    private void logTokenError(Throwable e) {
+        log.error("Error on fetching token", e);
+    }
 
+    private void setTokenValue(TokenFromAuthService tokenFromAuthService) throws AuthException {
         if (tokenFromAuthService==null || !tokenFromAuthService.getStatus().equals("APPROVED")) {
-            throw new RuntimeException("Error on fetching token");
+            throw new AuthException("Credentials are not correct");
         }
         token = tokenFromAuthService.getToken();
         tokenFetched = LocalDateTime.now();
@@ -78,7 +85,7 @@ public class MerchantAuthService {
 
     @Getter
     @AllArgsConstructor
-    public static class AuthUser {
+    private static class AuthUser {
         private String password;
         private String email;
     }

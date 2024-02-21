@@ -1,60 +1,56 @@
 package com.example.FHTest.service;
 
 import com.example.FHTest.model.*;
+import jakarta.security.auth.message.AuthException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
+
 @Service
 public class TransactionService {
-    @Value("${reporting.transaction.list.path}")
-    private String transactionListPath;
-
-    @Value("${reporting.transaction.report.path}")
-    private String transactionReportPath;
-
-    @Value("${reporting.transaction.get.path}")
-    private String transactionFetchPath;
-
+    private final String transactionListPath;
+    private final String transactionReportPath;
+    private final String transactionFetchPath;
     private final MerchantAuthService merchantAuthService;
-
     private final WebClient.Builder webClientBuilder;
 
     @Autowired
-    public TransactionService(MerchantAuthService merchantAuthService, WebClient.Builder webClientBuilder) {
+    public TransactionService(MerchantAuthService merchantAuthService,
+                              WebClient.Builder webClientBuilder,
+                              @Value("${reporting.transaction.list.path}") String transactionListPath,
+                              @Value("${reporting.transaction.report.path}") String transactionReportPath,
+                              @Value("${reporting.transaction.get.path}") String transactionFetchPath) {
         this.merchantAuthService = merchantAuthService;
         this.webClientBuilder = webClientBuilder;
+        this.transactionListPath = transactionListPath;
+        this.transactionReportPath = transactionReportPath;
+        this.transactionFetchPath = transactionFetchPath;
     }
 
-    public Mono<TransactionListResponse> search(TransactionListRequestDto transactionListRequestDto) {
-        return webClientBuilder.build()
-                .post()
-                .uri(transactionListPath)
-                .headers(httpHeaders -> httpHeaders.add("Authorization", merchantAuthService.getToken()))
-                .body(Mono.just(transactionListRequestDto), TransactionListRequestDto.class)
-                .retrieve()
-                .bodyToMono(TransactionListResponse.class);
+    public TransactionListResponse search(TransactionListRequestDto transactionListRequestDto) throws AuthException {
+        return postAndFetchWithToken(transactionListRequestDto, TransactionListRequestDto.class, TransactionListResponse.class, transactionListPath).block();
     }
 
-    public Mono<TransactionReportResponse> fetchReport(TransactionReportRequestDto transactionReportRequestDto) {
-        return webClientBuilder.build()
-                .post()
-                .uri(transactionReportPath)
-                .headers(httpHeaders -> httpHeaders.add("Authorization", merchantAuthService.getToken()))
-                .body(Mono.just(transactionReportRequestDto), TransactionReportRequestDto.class)
-                .retrieve()
-                .bodyToMono(TransactionReportResponse.class);
+    public TransactionReportResponse fetchReport(TransactionReportRequestDto transactionReportRequestDto) throws AuthException {
+        return postAndFetchWithToken(transactionReportRequestDto, TransactionReportRequestDto.class, TransactionReportResponse.class, transactionReportPath).block();
     }
 
-    public Mono<TransactionFetchResponse> getTransaction(TransactionFetchRequestDto transactionFetchRequestDto) {
+    public TransactionFetchResponse getTransaction(TransactionFetchRequestDto transactionFetchRequestDto) throws AuthException {
+        return postAndFetchWithToken(transactionFetchRequestDto, TransactionFetchRequestDto.class, TransactionFetchResponse.class, transactionFetchPath).block();
+    }
+    
+    private <T, D> Mono<T> postAndFetchWithToken(D d, Class<D> dClass, Class<T> tClass , String path) throws AuthException {
+        final String token = merchantAuthService.getToken();
         return webClientBuilder.build()
                 .post()
-                .uri(transactionFetchPath)
-                .headers(httpHeaders -> httpHeaders.add("Authorization", merchantAuthService.getToken()))
-                .body(Mono.just(transactionFetchRequestDto), TransactionFetchRequestDto.class)
+                .uri(path)
+                .headers(httpHeaders -> httpHeaders.add(AUTHORIZATION, token))
+                .body(Mono.just(d), dClass)
                 .retrieve()
-                .bodyToMono(TransactionFetchResponse.class);
+                .bodyToMono(tClass);
     }
 }
