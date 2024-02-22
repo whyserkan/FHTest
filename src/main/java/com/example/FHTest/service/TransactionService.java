@@ -8,6 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 @Service
@@ -33,6 +38,19 @@ public class TransactionService {
 
     public TransactionListResponse search(TransactionListRequestDto transactionListRequestDto) throws AuthException {
         return postAndFetchWithToken(transactionListRequestDto, TransactionListRequestDto.class, TransactionListResponse.class, transactionListPath).block();
+    }
+
+    public List<TransactionListResponse.Customer> fetchCustomersBy(String customerSurname) throws AuthException {
+        var response =
+                postAndFetchWithToken(new TransactionListRequestDto(), TransactionListRequestDto.class, TransactionListResponse.class, transactionListPath).block();
+
+        if (response!=null && response.getData()!=null && response.getData().getCustomerInfo()!=null) {
+            return response.getData()
+                    .getCustomerInfo().stream()
+                    .filter(customer -> customer.getBillingLastName().equals(customerSurname))
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
     }
 
     public TransactionReportResponse fetchReport(TransactionReportRequestDto transactionReportRequestDto) throws AuthException {
