@@ -9,7 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 public class ReportController {
@@ -51,4 +54,14 @@ public class ReportController {
             return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
         }
     }
+
+    @GetMapping("/transaction/customer/{surname}")
+    public Flux<ResponseEntity<List<TransactionListResponse.Customer>>> fetchCustomers(@PathVariable String surname) {
+        try {
+            return Flux.just(ResponseEntity.ok(transactionService.fetchCustomersBy(surname)));
+        } catch (AuthException e) {
+            return Flux.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+        }
+    }
+
 }

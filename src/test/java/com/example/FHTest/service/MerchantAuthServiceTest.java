@@ -18,12 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest(properties = {"jasypt.encryptor.password=secret"})
 @EnableWireMock({
-        @ConfigureWireMock(name = "user-service", property = "user-client.url")
+        @ConfigureWireMock(name = "auth-service", property = "auth-client.url")
 })
 public class MerchantAuthServiceTest {
     private MerchantAuthService merchantAuthService;
 
-    @InjectWireMock("user-service")
+    @InjectWireMock("auth-service")
     private WireMockServer wiremock;
 
     private final static String PATH = "/path";
@@ -36,7 +36,7 @@ public class MerchantAuthServiceTest {
 
     @Test
     void testIfCredentialsAreNotCorrect_getTokenShouldThrowException() {
-        var webClintBuilder = WebClient.builder().baseUrl(env.getProperty("user-client.url"));
+        var webClintBuilder = WebClient.builder().baseUrl(env.getProperty("auth-client.url"));
 
         wiremock.stubFor(post(PATH).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json")
@@ -52,7 +52,7 @@ public class MerchantAuthServiceTest {
 
     @Test
     void testIfCredentialsAreCorrect_getTokenShouldGetToken() throws AuthException {
-        var webClintBuilder = WebClient.builder().baseUrl(env.getProperty("user-client.url"));
+        var webClintBuilder = WebClient.builder().baseUrl(env.getProperty("auth-client.url"));
 
         wiremock.stubFor(post(PATH).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json")
@@ -66,5 +66,5 @@ public class MerchantAuthServiceTest {
         assertEquals(merchantAuthService.getToken(), "xx");
     }
 
-    /// there can be more tests about timeout,
+    /// there can be more tests about timeout maybe
 }
